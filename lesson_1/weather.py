@@ -1,5 +1,5 @@
 # e5e4cd692a72b0b66ea0a6b80255d1c3
-from xml.etree.ElementTree import indent
+
 
 import requests
 from pprint import pprint
@@ -19,6 +19,6 @@ j_data = response.json()
 pprint(j_data)
 print(f'В городе {j_data.get("name")} температура {round(j_data.get("main").get("temp") - 273.15, 2)} градусов')
 
-with open('data.json', mode='w', encoding='utf-8') as f:
-    json.dump(j_data, ensure_ascii=False)
+with open('data.json', mode='w') as f:
+    json.dump(j_data, fp=f)
 
