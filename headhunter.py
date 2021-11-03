@@ -119,8 +119,8 @@ class HeadHunter:
             self.add_data(new_row)
 
 
-# vacancy = input('Введите вакансию ')
-hh = HeadHunter("Программист 1с")
+vacancy = input('Введите вакансию ')
+hh = HeadHunter(vacancy)
 
 while hh.next_page():
     hh.collect_data()
