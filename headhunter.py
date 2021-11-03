@@ -4,6 +4,19 @@ from bs4 import BeautifulSoup
 import numpy as np
 import pandas as pd
 import re
+import pymongo
+
+
+class ConnectionMDB:
+    def __init__(self):
+        client = pymongo.MongoClient('127.0.0.1', 27017)
+        self.collection = client['headhunter']['vacancy']
+
+    def add_data(self, new_row):
+        if self.collection.find_one({'_id': new_row['_id']}):
+            self.collection.update_one({'_id': new_row['_id']}, {'$set': new_row})
+        else:
+            self.collection.insert_one(new_row)
 
 
 class HeadHunter:
@@ -20,13 +33,17 @@ class HeadHunter:
         self.search_query = search_query
         self.data = pd.DataFrame(empty_data)
         self.page = 0
-        self.new_row = {"vacancy": None,
-                        "description": None,
-                        "site": None,
-                        "salary_min": None,
-                        "salary_max": None,
-                        "currency": None,
-                        }
+        self.new_row = {
+            "_id": None,
+            "search_query": search_query,
+            "vacancy": None,
+            "description": None,
+            "site": None,
+            "salary_min": None,
+            "salary_max": None,
+            "currency": None,
+        }
+        self.connection = ConnectionMDB()
 
     def next_page(self):
 
@@ -48,14 +65,16 @@ class HeadHunter:
 
         return len(self.dom.find_all('div', {'class': 'vacancy-serp-item'}))
 
-    def add_data(self, data):
-        self.data = self.data.append(data, ignore_index=True)
+    def add_data(self, new_row):
+        self.connection.add_data(new_row)
 
     def show_data(self):
-        pprint(self.data)
+        pass
 
     def get_info(self, dom, tag, block, class_):
+
         block = dom.find(tag, {block: class_})
+
         if block:
             return block.text
         else:
@@ -69,35 +88,39 @@ class HeadHunter:
             new_row = self.new_row.copy()
 
             new_row['vacancy'] = self.get_info(child, 'a', 'class', 'bloko-link')
+
             new_row['description'] = self.get_info(child, 'div', 'data-qa', 'vacancy-serp__vacancy_snippet_requirement')
-            # child.find('div', {'data-qa': 'vacancy-serp__vacancy_snippet_requirement'}).text
+
             new_row['site'] = child.find('a', {'data-qa': 'vacancy-serp__vacancy-title'}).attrs.get('href')
+
+            new_row['_id'] = re.findall('[0-9]{4,}', new_row['site'])[0]
+
             salary_block = child.find('span', {'data-qa': 'vacancy-serp__vacancy-compensation'})
+
             if salary_block:
+
                 salary = salary_block.text
                 currency_list = re.sub(r'\s+', ' ', salary).split(' ')
                 new_row['currency'] = currency_list[-1]
+
                 salary = re.sub(r'\s+', '', salary)
                 numbers = re.findall('[0-9]+', salary)
+
                 if len(numbers) == 2:
                     new_row['salary_min'] = int(numbers[0])
                     new_row['salary_max'] = int(numbers[1])
+
                 elif 'от' in currency_list:
                     new_row['salary_min'] = int(numbers[0])
+
                 elif 'до' in currency_list:
                     new_row['salary_max'] = int(numbers[0])
 
             self.add_data(new_row)
 
-    def save_data(self):
-        self.data.to_csv('Вакансии.csv')
 
-vacancy = input('Введите вакансию ')
-hh = HeadHunter(vacancy)
+# vacancy = input('Введите вакансию ')
+hh = HeadHunter("Программист 1с")
 
 while hh.next_page():
     hh.collect_data()
-
-
-hh.save_data()
-hh.show_data()
